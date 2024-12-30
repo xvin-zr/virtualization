@@ -78,6 +78,8 @@ export class VirtualList<T> {
   private root: HTMLElement;
   private start: number;
   private end: number;
+  private limit: number;
+  private pool: HTMLElement[];
 
   /**
    * @param root - Root element where the virtual list will be mounted
@@ -88,6 +90,8 @@ export class VirtualList<T> {
     this.root = root;
     this.start = 0;
     this.end = 0;
+    this.limit = props.pageSize * 2;
+    this.pool = [];
   }
 
   /**
@@ -152,14 +156,25 @@ export class VirtualList<T> {
    */
   async #handleBottomObserver(): Promise<void> {
     const data = await this.props.getPage(this.end++);
-    const list = getVirtualList();
-    const fragment = new DocumentFragment();
 
-    for (const datum of data) {
-      const card = this.props.getTemplate(datum, null);
-      fragment.appendChild(card);
+    if (this.pool.length < this.limit) {
+      const list = getVirtualList();
+      const fragment = new DocumentFragment();
+
+      for (const datum of data) {
+        const card = this.props.getTemplate(datum, null);
+        fragment.appendChild(card);
+        this.pool.push(card);
+      }
+      list?.appendChild(fragment);
+    } else {
+      const [toRecycle, unchanged] = [
+        this.pool.slice(0, this.props.pageSize),
+        this.pool.slice(this.props.pageSize),
+      ];
+      this.pool = unchanged.concat(toRecycle);
+      this.#updateData(toRecycle, data);
     }
-    list?.appendChild(fragment);
   }
 
   /**
@@ -174,7 +189,11 @@ export class VirtualList<T> {
    * @param elements - HTML Elements to update
    * @param data - Data to use for update
    */
-  #updateData(elements: HTMLElement[], data: T[]): void {}
+  #updateData(elements: HTMLElement[], data: T[]): void {
+    for (let i = 0; i < data.length; i++) {
+      this.props.updateTemplate(data[i], elements[i]);
+    }
+  }
 
   /**
    * Move elements on the screen using CSS Transform
