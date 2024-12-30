@@ -142,7 +142,7 @@ export class VirtualList<T> {
   #handleIntersectionObserver(entries: IntersectionObserverEntry[]): void {
     for (const entry of entries) {
       if (entry.isIntersecting) {
-        if (entry.target.id === "top-observer") {
+        if (entry.target.id === "top-observer" && this.start > 0) {
           this.#handleTopObserver();
         } else if (entry.target.id === "bottom-observer") {
           this.#handleBottomObserver();
@@ -156,6 +156,7 @@ export class VirtualList<T> {
    */
   async #handleBottomObserver(): Promise<void> {
     const data = await this.props.getPage(this.end++);
+    const container = getContainer()!;
 
     if (this.pool.length < this.limit) {
       const list = getVirtualList();
@@ -174,14 +175,27 @@ export class VirtualList<T> {
       ];
       this.pool = unchanged.concat(toRecycle);
       this.#updateData(toRecycle, data);
+      this.start++;
     }
     this.#updateElementsPosition("down");
+    container.style.height = `${container?.scrollHeight}px`;
   }
 
   /**
    * Handle top observer intersection
    */
-  async #handleTopObserver(): Promise<void> {}
+  async #handleTopObserver(): Promise<void> {
+    this.start--;
+    this.end--;
+    const data = await this.props.getPage(this.start);
+    const [unchanged, toRecycle] = [
+      this.pool.slice(0, this.props.pageSize),
+      this.pool.slice(this.props.pageSize),
+    ];
+    this.pool = toRecycle.concat(unchanged);
+    this.#updateData(toRecycle, data);
+    this.#updateElementsPosition("top");
+  }
 
   /**
    * Function uses `props.getTemplate` to update the html elements
@@ -216,7 +230,13 @@ export class VirtualList<T> {
         }
       }
     } else if (direction === "top") {
-      // To implement
+      for (let i = this.props.pageSize - 1; i >= 0; i--) {
+        const [curr, next] = [this.pool[i], this.pool[i + 1]];
+        const newY =
+          y(next)! - MARGIN * 2 - curr.getBoundingClientRect().height;
+        y(curr, newY);
+        curr.style.transform = translateY(newY);
+      }
     }
 
     const [first, last] = [this.pool[0], this.pool.at(-1)!];
