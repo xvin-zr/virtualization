@@ -1,0 +1,12 @@
+{
+  "tasks": {
+    "dev": "vite"
+  },
+  "imports": {
+    "vite": "npm:vite@^6.0.6"
+  },
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "types": ["dom"]
+  }
+}
