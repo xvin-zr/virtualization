@@ -48,7 +48,7 @@ function getContainer(): HTMLElement | null {
  * @returns {number | null}
  */
 function y(
-  element: HTMLElement,
+  element: HTMLElement | undefined,
   value: string | number | undefined = undefined
 ): number | null {
   if (value != null) {
@@ -175,6 +175,7 @@ export class VirtualList<T> {
       this.pool = unchanged.concat(toRecycle);
       this.#updateData(toRecycle, data);
     }
+    this.#updateElementsPosition("down");
   }
 
   /**
@@ -203,9 +204,26 @@ export class VirtualList<T> {
   #updateElementsPosition(direction: "top" | "down"): void {
     const [top, bottom] = getObservers();
     if (direction === "down") {
-      // To implement
+      for (let i = 0; i < this.pool.length; i++) {
+        const [prev, curr] = [this.pool.at(i - 1), this.pool[i]];
+        if (y(prev) === null) {
+          y(curr, 0);
+        } else {
+          const newY =
+            y(prev)! + MARGIN * 2 + prev!.getBoundingClientRect().height;
+          y(curr, newY);
+          curr.style.transform = translateY(newY);
+        }
+      }
     } else if (direction === "top") {
       // To implement
     }
+
+    const [first, last] = [this.pool[0], this.pool.at(-1)!];
+    const topY = y(first)!;
+    const bottomY = y(last)! + MARGIN * 2 + last.getBoundingClientRect().height;
+
+    top.style.transform = translateY(topY);
+    bottom.style.transform = translateY(bottomY);
   }
 }
